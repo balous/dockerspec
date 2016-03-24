@@ -1,0 +1,12 @@
+#!/bin/bash
+
+image="dockerspec-$RANDOM"
+docker build --rm -t $image .
+
+export container=$(docker run --entrypoint /bin/sh -d $image -c 'while true ; do sleep 1 ; done')
+
+rspec --format=doc --color spec
+
+docker kill $container
+docker rm $container
+docker rmi $image
