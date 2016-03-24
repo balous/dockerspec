@@ -3,7 +3,11 @@
 image="dockerspec-$RANDOM"
 docker build --rm -t $image .
 
-export container=$(docker run --entrypoint /bin/sh -d $image -c 'while true ; do sleep 1 ; done')
+if [ $force_run == 'true' ] ; then
+	export container=$(docker run --entrypoint /bin/sh -d $image -c 'while true ; do sleep 1 ; done')
+else
+	export container=$(docker run -d $image)
+fi
 
 rspec --format=doc --color spec
 

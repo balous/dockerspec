@@ -1,5 +1,7 @@
 FROM debian:jessie
 
+ENV force_run false
+
 RUN \
 	apt-get update && \
 	apt-get install --yes --no-install-recommends apt-transport-https ca-certificates && \
