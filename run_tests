@@ -1,16 +1,121 @@
-#!/bin/bash
+#!/usr/bin/env ruby
 
-image="dockerspec-$RANDOM"
-docker build --rm -t $image .
+require 'pp'
+require 'trollop'
 
-if [ $force_run == 'true' ] ; then
-	export container=$(docker run --entrypoint /bin/sh -d $image -c 'while true ; do sleep 1 ; done')
-else
-	export container=$(docker run -d $image)
-fi
+class Dockerspec
 
-rspec --format=doc --color spec
+	def initialize (argv)
+		@opts = parse_opts (argv)
+	end
 
-docker kill $container
-docker rm $container
-docker rmi $image
+	def parse_opts argv
+		p = Trollop::Parser.new do
+			opt "init-delay", "Wait number of seconds before running tests",                       :short => 'd', :default => 0
+			opt "force-run",  "Override entrypoint for command only images that exit immediately", :short => 'r'
+			opt "image",      "Start built image",                                                 :short => 'i', :type => :string, :default => nil
+			opt "container",  "Connect to running container",                                      :short => 'c', :type => :string, :default => nil
+			opt "docker-url", "Override default docker api endpoint",                              :short => 'u', :type => :string, :default => nil
+			opt "rspec-opts", "Override default rspec opts",                                       :short => 'o', :type => :string, :default => "--format=doc --color"
+			opt "spec-path",  "Path to spec files",                                                :short => 's', :type => :string, :default => "./spec"
+		end
+
+		opts = Trollop::with_standard_exception_handling p do
+			p.parse argv
+		end
+
+		raise RuntimeError, "'container' and 'image' options are mutually exclusive." if (not opts["contaier"].nil?) and (not opts["image"].nil?)
+
+		return opts
+	end
+
+	def run_command command
+		puts "Running command: #{command}"
+
+		raise "Command failed" if not system (command)
+	end
+
+	def docker_command
+		command = "docker"
+
+		command += " -H '#{@opts['docker-url']}'" if not @opts["docker-url"].nil?
+
+		return command
+	end
+
+	def run_container image
+		commands = []
+		
+		commands.push(docker_command())
+		commands.push("run -d")
+		commands.push("--entrypoint /bin/sh") if @opts["force-run"]
+		commands.push(image)
+		commands.push("-c 'while true ; do sleep 1 ; done'") if @opts["force-run"]
+
+		command = commands.join(" ")
+
+		puts "Running command: #{command}"
+		container = `#{command}`.chomp!
+
+		return container
+	end
+
+	def build_image
+
+		image = "dockerspec-" + Random.rand(10000).to_s
+
+		run_command("#{docker_command()} build --rm -t #{image} .")
+
+		return image
+	end
+
+	def run_tests container
+
+		puts "Waiting #{@opts["init-delay"]} seconds..."
+		sleep(@opts["init-delay"])
+
+		parts = []
+		parts.push("container=#{container}")
+		parts.push("docker_url=#{@opts["docker-url"]}") if not @opts["docker-url"].nil?
+		parts.push("rspec #{@opts["rspec-opts"]} '#{@opts["spec-path"]}'")
+
+		command = parts.join(" ")
+
+		run_command(command)
+
+		return 0
+	rescue RuntimeError
+		return -1
+	end
+
+	def cleanup container, image
+
+		return if not @opts['container'].nil?
+
+		run_command("#{docker_command()} kill #{container}")
+		run_command("#{docker_command()} rm #{container}")
+
+		return if not @opts['image'].nil?
+
+		run_command("#{docker_command()} rmi -f #{image}")
+	end
+
+	def run
+		if @opts['container'].nil?
+			image     = @opts["image"].nil? ? build_image() : @opts["image"]
+			container = run_container(image)
+		else
+			container = @opts["container"]
+		end
+
+		result = run_tests(container)
+
+		cleanup(container, image)
+
+		exit result
+	end
+end
+
+d = Dockerspec.new(ARGV)
+
+d.run()

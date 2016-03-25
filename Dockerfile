@@ -11,8 +11,8 @@ RUN \
 	apt-get install --yes --no-install-recommends docker-engine
 
 RUN \
-	apt-get install --yes --no-install-recommends ruby ruby-dev && \
-	gem install serverspec docker-api
+	apt-get install --yes --no-install-recommends ruby && \
+	gem install serverspec docker-api trollop
 
 COPY run_tests /run_tests
 COPY dockerspec.rb /usr/lib/ruby/vendor_ruby/
