@@ -6,7 +6,7 @@ image and run tests against it. By default, image is automatically built from **
 by **--image** and **--container** options. Default test location is **./spec**.
 
 ## Usage
-	$ docker run -t --rm -w /work -v "$(pwd):/work" -v '/var/run/docker.sock:/var/run/docker.sock' dockerspec [options]
+	$ docker run -t --rm -w /work -v "$(pwd):/work" -v '/var/run/docker.sock:/var/run/docker.sock' samepagelabs/dockerspec [options]
 
 Options:
 *  **-d, --init-delay=&lt;delay&gt;** Wait number of seconds before running tests (default: 0)
